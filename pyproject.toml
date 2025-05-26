@@ -1,0 +1,19 @@
+[project]
+name = "rrgpy-streamlit"
+version = "0.1.0"
+description = "Interactive Relative Rotation Graph (RRG) app using Streamlit and Plotly. Based on https://github.com/An0n1mity/RRGPy"
+authors = [
+    { name = "Julian Ricardo", email = "consult_julian@f-m.fm" }
+]
+requires-python = ">=3.8"
+dependencies = [
+    "streamlit",
+    "plotly",
+    "pandas",
+    "numpy",
+    "yfinance",
+    "scipy"
+]
+
+[tool.uv]
+# Optional: uv-specific settings can go here 
