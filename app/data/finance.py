@@ -120,20 +120,31 @@ def get_rrg_data(tickers, benchmark, period):
     """
     Fetch price data for tickers and benchmark. Return a DataFrame with columns:
     ['Symbol', 'Date', 'Price', 'Benchmark', 'RS_Ratio', 'RS_Momentum', 'Momentum_Flip_Count']
+    Also returns a list of tickers that were dropped due to insufficient data.
     """
     if not tickers:
-        return pd.DataFrame(columns=RRG_DATA_COLUMNS + ["Momentum_Flip_Count"])
+        return pd.DataFrame(columns=RRG_DATA_COLUMNS + ["Momentum_Flip_Count"]), []
+
     interval = interval_map.get(period, "1wk")
     window = window_map.get(period, 50)
 
     prices = fetch_prices(tickers + [benchmark], period=period, interval=interval)
     if prices.empty:
-        return pd.DataFrame(columns=RRG_DATA_COLUMNS + ["Momentum_Flip_Count"])
+        return pd.DataFrame(columns=RRG_DATA_COLUMNS + ["Momentum_Flip_Count"]), tickers
+
     prices = prices.dropna()
     if prices.empty:
-        return pd.DataFrame(columns=RRG_DATA_COLUMNS + ["Momentum_Flip_Count"])
+        return pd.DataFrame(columns=RRG_DATA_COLUMNS + ["Momentum_Flip_Count"]), tickers
+
+    # Only keep tickers that are present in the prices DataFrame
+    available_tickers = [t for t in tickers if t in prices.columns]
+    dropped_tickers = [t for t in tickers if t not in prices.columns]
+
+    if not available_tickers:
+        return pd.DataFrame(columns=RRG_DATA_COLUMNS + ["Momentum_Flip_Count"]), tickers
+
     df = (
-        prices[tickers]
+        prices[available_tickers]
         .reset_index()
         .melt(id_vars=["Date"], var_name="Symbol", value_name="Price")
     )
@@ -141,13 +152,17 @@ def get_rrg_data(tickers, benchmark, period):
     benchmark_prices = prices[benchmark].reset_index()
     df = df.merge(benchmark_prices, on="Date", how="left", suffixes=("", "_Benchmark"))
     df = df.rename(columns={benchmark: "Benchmark"})
+
     # Calculate RS-Ratio and RS-Momentum
-    rs_df = calculate_rs_ratio_and_momentum(prices[tickers], prices[benchmark], window)
+    rs_df = calculate_rs_ratio_and_momentum(
+        prices[available_tickers], prices[benchmark], window
+    )
     if rs_df.empty:
         df["RS_Ratio"] = np.nan
         df["RS_Momentum"] = np.nan
         df["Momentum_Flip_Count"] = 0
-        return df[RRG_DATA_COLUMNS + ["Momentum_Flip_Count"]]
+        return df[RRG_DATA_COLUMNS + ["Momentum_Flip_Count"]], dropped_tickers
+
     df = df.merge(rs_df, on=["Symbol", "Date"], how="left")
     df = calculate_momentum_flip_count(df)
-    return df
+    return df, dropped_tickers
