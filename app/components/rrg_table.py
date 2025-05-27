@@ -53,6 +53,11 @@ def build_rrg_table(category_dfs):
                 }
             )
     table = pd.DataFrame(rows)
+    if table.empty:
+        # Return empty DataFrame with expected columns
+        return pd.DataFrame(
+            columns=["Symbol", "Category", "Quadrant", "Distance", "MFC"]
+        ), QUADRANT_COLORS
     # Rank by quadrant (Leading > Improving > Weakening > Lagging), then by distance (descending)
     quadrant_order = ["Leading", "Improving", "Weakening", "Lagging"]
     table["QuadrantRank"] = table["Quadrant"].apply(lambda q: quadrant_order.index(q))

@@ -22,6 +22,9 @@ def fetch_prices(
     data = yf.download(
         symbols, period=period, interval=interval, auto_adjust=True, progress=False
     )
+    if data.empty:
+        return pd.DataFrame()
+
     # Always get 'Close' (already adjusted if auto_adjust=True)
     if isinstance(data.columns, pd.MultiIndex):
         # Select only the 'Close' price for all tickers
