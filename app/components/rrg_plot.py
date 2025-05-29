@@ -19,11 +19,14 @@ def assign_quadrant(rs_ratio, rs_momentum):
         return "Lagging"
 
 
-def plot_rrg(df: pd.DataFrame, max_points_per_ticker: int = None):
+def plot_rrg(
+    df: pd.DataFrame, latest_points: pd.DataFrame, max_points_per_ticker: int = None
+):
     """
     Plot a Relative Rotation Graph (RRG) using Plotly.
     Args:
         df (pd.DataFrame): DataFrame with columns ['RS_Ratio', 'RS_Momentum', 'Symbol', ...]
+        latest_points (pd.DataFrame): DataFrame with columns ['RS_Ratio', 'RS_Momentum', 'Symbol', ...]
         max_points_per_ticker (int, optional): If set, only plot the last N points for each ticker.
     Returns:
         fig: Plotly Figure
@@ -44,16 +47,14 @@ def plot_rrg(df: pd.DataFrame, max_points_per_ticker: int = None):
         if max_points_per_ticker is not None:
             sub = sub.tail(max_points_per_ticker)
         n = len(sub)
-        # Determine quadrant and color for the latest point
-        latest_row = sub.iloc[-1]
+        # Use latest_points for label/quadrant
+        latest_row = latest_points[latest_points["Symbol"] == symbol].iloc[0]
         quadrant = assign_quadrant(latest_row["RS_Ratio"], latest_row["RS_Momentum"])
-        # color except for "weakening" which should use solid color
         color = (
             QUADRANT_COLORS.get(quadrant, "#888888")
             if quadrant != "Weakening"
             else QUADRANT_COLORS_SOLID.get(quadrant, "#000000")
         )
-        solid_color = QUADRANT_COLORS_SOLID.get(quadrant, "#000000")
         text_color = QUADRANT_COLORS_SOLID_TEXT.get(quadrant, "#000000")
         # Spline line for the trail
         fig.add_trace(

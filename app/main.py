@@ -1,7 +1,13 @@
 import streamlit as st
 from components.rrg_plot import plot_rrg
 from components.rrg_table import build_rrg_table
-from data.finance import get_rrg_data, interval_map, period_options, window_map
+from data.finance import (
+    get_latest_valid_points,
+    get_rrg_data,
+    interval_map,
+    period_options,
+    window_map,
+)
 
 st.set_page_config(page_title="Relative Rotation Graph (RRG)", layout="wide")
 st.title("RRG")
@@ -14,10 +20,59 @@ This app visualizes the JdK RS Ratio vs JdK RS Momentum for a set of tickers rel
 st.sidebar.header("Controls")
 
 # Shared controls
-custom_tickers = ["AIVL", "GRNY", "GUNR", "TRTY", "FTCE"]
-sector_tickers = ["XLK", "XLE", "XLF", "XLU", "XLB", "XLI", "XLC", "XLY", "XLP"]
-geography_tickers = ["EWG", "EWZ", "FXI", "EWS", "EWC"]
-alt_tickers = ["GLD", "DBMF", "KMLM", "TFPN"]
+beta_tickers = [
+    "CRWD",
+    "RKT",
+    "PM",
+    "BJ",
+    "UBER",
+    "APP",
+    "PLTR",
+    "MSTR",
+]
+sector_tickers = [
+    "XLK",
+    "XLE",
+    "XLF",
+    "XLU",
+    "XLB",
+    "XLI",
+    "XLC",
+    "XLY",
+    "XLP",
+]
+geography_tickers = [
+    "EWG",
+    "EWZ",
+    "FXI",
+    "EWS",
+    "EWC",
+    "EWI",
+]
+alt_tickers = [
+    "GLD",
+    "DBMF",
+    "KMLM",
+    "TFPN",
+    "TRTY",
+    "HARD",
+    "GUNR",
+    "UUP",
+]
+pharma_tickers = [
+    "IVVD",
+    "SDGR",
+    "MDGL",
+    "DVAX",
+    "PTCT",
+    "KROS",
+    "RCKT",
+    "ALKS",
+    "BHVN",
+    "TARS",
+    "RZLT",
+    "THTX",
+]
 
 def_benchmark = "SPY"
 def_period = "1mo"
@@ -62,7 +117,8 @@ GROUPS = {
     "Sectors": sector_tickers,
     "Geographies": geography_tickers,
     "Alternatives": alt_tickers,
-    "Custom": custom_tickers,
+    "Beta": beta_tickers,
+    "Pharma": pharma_tickers,
 }
 
 group_name = st.selectbox(
@@ -81,7 +137,9 @@ all_tickers = list(all_tickers)
 # Only proceed if benchmark is not empty
 if benchmark:
     # Fetch data for selected group
-    selected_rrg_df = get_rrg_data(selected_tickers, benchmark, period)
+    selected_rrg_df, selected_dropped = get_rrg_data(
+        selected_tickers, benchmark, period
+    )
 
     # Last updated for selected group
     if not selected_rrg_df.empty and "Date" in selected_rrg_df.columns:
@@ -93,16 +151,18 @@ if benchmark:
         if not selected_rrg_df.empty and {"RS_Ratio", "RS_Momentum", "Symbol"}.issubset(
             selected_rrg_df.columns
         ):
+            latest_points_df = get_latest_valid_points(selected_rrg_df)
             fig = plot_rrg(
-                selected_rrg_df.dropna(subset=["RS_Ratio", "RS_Momentum"]),
+                selected_rrg_df,
+                latest_points=latest_points_df,
                 max_points_per_ticker=4,
             )
             st.plotly_chart(fig, use_container_width=True)
     except Exception as e:
         st.error(f"Error fetching RRG data for {group_name}: {e}")
 
-    # Table always shows all tickers
-    all_rrg_df = get_rrg_data(all_tickers, benchmark, period)
+    # Table showing selected tickers
+    latest_points_df = get_latest_valid_points(selected_rrg_df)
     # Build a mapping from symbol to group
     symbol_to_group = {}
     for group, tickers in GROUPS.items():
@@ -111,11 +171,20 @@ if benchmark:
     # Table always shows all tickers, grouped by their category
     grouped_tables = []
     for group, tickers in GROUPS.items():
-        group_df = all_rrg_df[all_rrg_df["Symbol"].isin(tickers)]
-        grouped_tables.append((group_df, group))
-    all_table, all_quadrant_colors = build_rrg_table(grouped_tables)
-    st.write("## Full RRG Ranking")
-    st.dataframe(all_table)
+        group_df = latest_points_df[latest_points_df["Symbol"].isin(tickers)]
+        if not group_df.empty:
+            grouped_tables.append((group_df, group))
+    selected_table, _ = build_rrg_table(grouped_tables)
+    st.write(f"## {group_name} RRG Ranking")
+    # show more than the default number of rows responsively
+    # based on number of rows in all_table
+    st.dataframe(selected_table, height=min(len(selected_tickers) * 40, 1000))
     st.write("MFC: Momentum Flip Count")
+
+    if selected_dropped:
+        st.warning(
+            f"The following tickers were dropped due to insufficient data: {', '.join(selected_dropped)}"
+        )
+
 else:
     st.warning("Please enter a benchmark ticker to view the chart and table.")

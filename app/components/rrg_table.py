@@ -24,39 +24,27 @@ def build_rrg_table(category_dfs):
     for df, category in category_dfs:
         if df is None or df.empty:
             continue
-        # Get the latest (most recent date) RS metrics for each symbol
-        latest = df.sort_values("Date").groupby("Symbol").tail(1)
-        for symbol in latest["Symbol"]:
-            symbol_df = df[df["Symbol"] == symbol].sort_values("Date")
-            # Assign quadrants for all points
-            quadrants = symbol_df.apply(
-                lambda row: assign_quadrant(row["RS_Ratio"], row["RS_Momentum"]), axis=1
-            )
-            current_quadrant = quadrants.iloc[-1]
-            rs_ratio = symbol_df["RS_Ratio"].iloc[-1]
-            rs_momentum = symbol_df["RS_Momentum"].iloc[-1]
-            distance = np.sqrt((rs_ratio - 100) ** 2 + (rs_momentum - 100) ** 2)
-            distance = round(distance, 2)
-            # Get latest Momentum Flip Count if present
-            mfc = (
-                symbol_df["Momentum_Flip_Count"].iloc[-1]
-                if "Momentum_Flip_Count" in symbol_df.columns
-                else None
-            )
+        for _, row in df.iterrows():
+            # row is already the latest for this symbol
             rows.append(
                 {
-                    "Symbol": symbol,
-                    "Category": category,
-                    "Quadrant": current_quadrant,
-                    "Distance": distance,
-                    "MFC": mfc,
+                    "Symbol": row["Symbol"],
+                    "Quadrant": assign_quadrant(row["RS_Ratio"], row["RS_Momentum"]),
+                    "Distance": round(
+                        np.sqrt(
+                            (row["RS_Ratio"] - 100) ** 2
+                            + (row["RS_Momentum"] - 100) ** 2
+                        ),
+                        2,
+                    ),
+                    "MFC": row.get("Momentum_Flip_Count", None),
                 }
             )
     table = pd.DataFrame(rows)
     if table.empty:
         # Return empty DataFrame with expected columns
         return pd.DataFrame(
-            columns=["Symbol", "Category", "Quadrant", "Distance", "MFC"]
+            columns=["Symbol", "Quadrant", "Distance", "MFC"]
         ), QUADRANT_COLORS
     # Rank by quadrant (Leading > Improving > Weakening > Lagging), then by distance (descending)
     quadrant_order = ["Leading", "Improving", "Weakening", "Lagging"]

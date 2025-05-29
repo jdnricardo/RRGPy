@@ -165,4 +165,13 @@ def get_rrg_data(tickers, benchmark, period):
 
     df = df.merge(rs_df, on=["Symbol", "Date"], how="left")
     df = calculate_momentum_flip_count(df)
+    # TODO: add volatility metric to normalize flip count and distance
     return df, dropped_tickers
+
+
+def get_latest_valid_points(df):
+    # Only keep rows with valid RS_Ratio and RS_Momentum
+    valid = df.dropna(subset=["RS_Ratio", "RS_Momentum"])
+    # For each symbol, get the row with the latest date
+    idx = valid.groupby("Symbol")["Date"].idxmax()
+    return valid.loc[idx]
