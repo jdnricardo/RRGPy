@@ -20,27 +20,26 @@ This app visualizes the JdK RS Ratio vs JdK RS Momentum for a set of tickers rel
 st.sidebar.header("Controls")
 
 # Shared controls
-beta_tickers = [
-    "CRWD",
-    "RKT",
+priority_tickers = [
+    "NVDA",
+    "SGOL",
+    "IONQ",
     "PM",
     "BJ",
-    "UBER",
-    "APP",
-    "PLTR",
-    "MSTR",
+    "COST",
+    "MOS",
 ]
-sector_tickers = [
-    "XLK",
-    "XLE",
-    "XLF",
-    "XLU",
-    "XLB",
-    "XLI",
-    "XLC",
-    "XLY",
-    "XLP",
+prod_staple_tickers = [
+    "MOS",
+    "PM",
+    "BJ",
+    "COST",
+    "HARD",
+    "GUNR",
 ]
+# Tickers you hear about
+beta_tickers = ["CRWD", "RKT", "UBER", "RIVN", "APP", "PLTR", "MSTR", "GME", "TSLA"]
+# Is international diversification worth it?
 geography_tickers = [
     "EWG",
     "EWZ",
@@ -49,16 +48,15 @@ geography_tickers = [
     "EWC",
     "EWI",
 ]
+# What alts are you considering relative to gold (e.g. trend-following?)
 alt_tickers = [
-    "GLD",
     "DBMF",
     "KMLM",
     "TFPN",
     "TRTY",
-    "HARD",
-    "GUNR",
     "UUP",
 ]
+# Keeping a closer eye on pharma names
 pharma_tickers = [
     "IVVD",
     "SDGR",
@@ -73,6 +71,18 @@ pharma_tickers = [
     "RZLT",
     "THTX",
 ]
+# Like geo, seeing if there's any worthwhile sector tilts
+sector_tickers = [
+    "XLK",
+    "XLE",
+    "XLF",
+    "XLU",
+    "XLB",
+    "XLI",
+    "XLC",
+    "XLY",
+    "XLP",
+]
 
 def_benchmark = "SPY"
 def_period = "1mo"
@@ -80,7 +90,7 @@ def_interval = "1d"
 def_window = 20
 
 # Sidebar inputs
-benchmark_options = ["SPY", "QQQ", "Other (type below)"]
+benchmark_options = ["SPY", "QQQ", "GLD", "Other (type below)"]
 selected_benchmark_option = st.selectbox(
     "Benchmark",
     options=benchmark_options,
@@ -114,11 +124,12 @@ st.sidebar.write(f"**Window for rolling RS:** {window}")
 
 # Group options for dropdown
 GROUPS = {
-    "Sectors": sector_tickers,
+    "Priority": priority_tickers,
     "Geographies": geography_tickers,
     "Alternatives": alt_tickers,
     "Beta": beta_tickers,
     "Pharma": pharma_tickers,
+    "Sectors": sector_tickers,
 }
 
 group_name = st.selectbox(
@@ -178,7 +189,7 @@ if benchmark:
     st.write(f"## {group_name} RRG Ranking")
     # show more than the default number of rows responsively
     # based on number of rows in all_table
-    st.dataframe(selected_table, height=min(len(selected_tickers) * 40, 1000))
+    st.dataframe(selected_table, height=min(max(140, len(selected_tickers) * 40), 1000))
     st.write("MFC: Momentum Flip Count")
 
     if selected_dropped:

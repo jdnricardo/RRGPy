@@ -4,9 +4,25 @@ import numpy as np
 import pandas as pd
 import yfinance as yf
 
-period_options = ["1mo", "1y", "5y", "10y", "max"]
-interval_map = {"1mo": "1d", "1y": "5d", "5y": "1mo", "10y": "3mo", "max": "3mo"}
-window_map = {"1mo": 7, "1y": 20, "5y": 50, "10y": 100, "max": 200}
+period_options = ["1mo", "6mo", "1y", "2y", "5y", "10y", "max"]
+interval_map = {
+    "1mo": "1d",
+    "6mo": "1d",
+    "1y": "1wk",
+    "2y": "1wk",
+    "5y": "1mo",
+    "10y": "3mo",
+    "max": "3mo",
+}
+window_map = {
+    "1mo": 7,
+    "6mo": 20,
+    "1y": 20,
+    "2y": 20,
+    "5y": 50,
+    "10y": 100,
+    "max": 200,
+}
 
 # Define the schema for RRG data in one place
 RRG_DATA_COLUMNS = ["Symbol", "Date", "Price", "Benchmark", "RS_Ratio", "RS_Momentum"]
