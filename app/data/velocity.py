@@ -92,6 +92,7 @@ def rrg_velocity_table(diff_df: pd.DataFrame):
     df["Distance_LTF"] = (
         (df["RS_Ratio_LTF"] - 100) ** 2 + (df["RS_Momentum_LTF"] - 100) ** 2
     ) ** 0.5
+    df["Distance_LogPct_Diff"] = np.log(df["Distance_HTF"] / df["Distance_LTF"])
     df["Distance_HTF"] = df["Distance_HTF"].round(2)
     df["Distance_LTF"] = df["Distance_LTF"].round(2)
 
@@ -102,6 +103,7 @@ def rrg_velocity_table(diff_df: pd.DataFrame):
     # Reorder columns: Symbol, RS_Ratio_Diff, RS_Momentum_Diff, Distance_HTF, Distance_LTF, ...
     base_cols = [
         "Symbol",
+        "Distance_Diff",
         "RS_Ratio_Diff",
         "RS_Momentum_Diff",
         "Distance_HTF",
@@ -132,10 +134,8 @@ def rrg_velocity_table(diff_df: pd.DataFrame):
             str(quadrant_htf.iloc[idx]).strip() != str(quadrant_ltf.iloc[idx]).strip()
         )
         for col in df_display.columns:
-            if col == "Distance_HTF":
-                styles.append(color_htf(row["Distance_HTF"], quadrant_htf.iloc[idx]))
-            elif col == "Distance_LTF":
-                styles.append(color_htf(row["Distance_LTF"], quadrant_ltf.iloc[idx]))
+            if col == "Distance_HTF" or col == "Distance_LTF":
+                styles.append(color_htf(row[col], quadrant_htf.iloc[idx]))
             elif col == "RS_Momentum_Diff":
                 # Style as green/red if sign flips
                 ratio_sign = np.sign(row.get("RS_Ratio_Diff", 0))
@@ -162,6 +162,15 @@ def rrg_velocity_table(diff_df: pd.DataFrame):
                 # Highlight if quadrant changed
                 if quadrant_changed:
                     styles.append("border: 2px solid orange; font-weight: bold;")
+                else:
+                    styles.append("")
+            elif col == "Distance_LogPct_Diff":
+                if np.abs(row[col]) > 0.618:
+                    styles.append(f"background-color: {QUADRANT_COLORS['Improving']};")
+                elif np.abs(row[col]) < 0.786:
+                    styles.append(f"background-color: {QUADRANT_COLORS['Weakening']};")
+                elif np.abs(row[col]) < 1.0:
+                    styles.append(f"background-color: {QUADRANT_COLORS['Lagging']};")
                 else:
                     styles.append("")
             else:
