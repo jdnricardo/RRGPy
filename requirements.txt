@@ -3,4 +3,6 @@ plotly
 pandas>=1.4.0
 numpy
 yfinance
-scipy 
+scipy
+palettable
+matplotlib

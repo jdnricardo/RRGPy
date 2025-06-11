@@ -9,6 +9,7 @@ from components.quadrant_colors import (
     QUADRANT_COLORS,
 )
 from components.rrg_table import assign_quadrant
+from palettable.colorbrewer.diverging import RdBu_11
 
 
 # This function takes two RRG DataFrames (from get_rrg_data) and computes the difference for each symbol
@@ -20,7 +21,7 @@ def compare_rrg_timeframes(
 ) -> pd.DataFrame:
     """
     For each symbol, compute the difference in selected columns between df2 (later) and df1 (earlier).
-    Returns a DataFrame with columns: Symbol, <col>_Diff for each selected column.
+    Returns a DataFrame with columns: Symbol, <col>_Diff for each selected column and their perpendicular components.
     """
 
     # Get latest valid point per symbol for each df
@@ -45,6 +46,18 @@ def compare_rrg_timeframes(
             row[f"{col}_Diff"] = latest2.loc[symbol, col] - latest1.loc[symbol, col]
             row[f"{col}_HTF"] = latest2.loc[symbol, col]
             row[f"{col}_LTF"] = latest1.loc[symbol, col]
+
+        # Calculate the perpendicular vector components
+        rs_ratio_diff = row["RS_Ratio_Diff"]
+        rs_momentum_diff = row["RS_Momentum_Diff"]
+
+        # Calculate the magnitude of the velocity vector
+        velocity_magnitude = np.sqrt(rs_ratio_diff**2 + rs_momentum_diff**2)
+
+        # Calculate the perpendicular vector components
+        row["Perp_RS_Ratio"] = -rs_momentum_diff / velocity_magnitude
+        row["Perp_RS_Momentum"] = rs_ratio_diff / velocity_magnitude
+
         diff_data.append(row)
 
     return pd.DataFrame(diff_data)
@@ -103,11 +116,9 @@ def rrg_velocity_table(diff_df: pd.DataFrame):
     # Reorder columns: Symbol, RS_Ratio_Diff, RS_Momentum_Diff, Distance_HTF, Distance_LTF, ...
     base_cols = [
         "Symbol",
-        "Distance_Diff",
-        "RS_Ratio_Diff",
-        "RS_Momentum_Diff",
         "Distance_HTF",
         "Distance_LTF",
+        "Distance_LogPct_Diff",
     ]
     display_cols = [col for col in base_cols if col in df.columns]
     display_cols += [
@@ -122,6 +133,8 @@ def rrg_velocity_table(diff_df: pd.DataFrame):
             "RS_Momentum_HTF",
             "RS_Ratio_LTF",
             "RS_Momentum_LTF",
+            "RS_Ratio_Diff",
+            "RS_Momentum_Diff",
         )
     ]
     df_display = df[display_cols].copy()
@@ -130,54 +143,37 @@ def rrg_velocity_table(diff_df: pd.DataFrame):
     def style_func_htf(row):
         idx = row.name
         styles = []
-        quadrant_changed = (
-            str(quadrant_htf.iloc[idx]).strip() != str(quadrant_ltf.iloc[idx]).strip()
-        )
         for col in df_display.columns:
-            if col == "Distance_HTF" or col == "Distance_LTF":
-                styles.append(color_htf(row[col], quadrant_htf.iloc[idx]))
-            elif col == "RS_Momentum_Diff":
-                # Style as green/red if sign flips
-                ratio_sign = np.sign(row.get("RS_Ratio_Diff", 0))
-                momentum_sign = np.sign(row.get("RS_Momentum_Diff", 0))
-                # if ratio sign is positive, momentum is negative
-                if ratio_sign > 0 and momentum_sign < 0:
-                    base = f"background-color: {QUADRANT_COLORS['Weakening']};"
-                # if ratio sign is negative, momentum is positive
-                elif ratio_sign < 0 and momentum_sign > 0:
-                    base = f"background-color: {QUADRANT_COLORS['Improving']};"
-                # if ratio sign is negative, momentum is negative
-                elif ratio_sign < 0 and momentum_sign < 0:
-                    base = f"background-color: {QUADRANT_COLORS['Lagging']};"
-                # if ratio sign is positive, momentum is positive
-                elif ratio_sign > 0 and momentum_sign > 0:
-                    base = f"background-color: {QUADRANT_COLORS['Leading']};"
-                else:
-                    base = ""
-                # Highlight if quadrant changed
-                if quadrant_changed:
-                    base += " border: 2px solid orange; font-weight: bold;"
-                styles.append(base)
-            elif col == "RS_Momentum_Diff":
-                # Highlight if quadrant changed
-                if quadrant_changed:
-                    styles.append("border: 2px solid orange; font-weight: bold;")
-                else:
-                    styles.append("")
+            if col == "Distance_HTF":
+                styles.append(color_quadrant(row[col], quadrant_htf.iloc[idx]))
+            elif col == "Distance_LTF":
+                styles.append(color_quadrant(row[col], quadrant_ltf.iloc[idx]))
             elif col == "Distance_LogPct_Diff":
-                if np.abs(row[col]) > 0.618:
-                    styles.append(f"background-color: {QUADRANT_COLORS['Improving']};")
-                elif np.abs(row[col]) < 0.786:
-                    styles.append(f"background-color: {QUADRANT_COLORS['Weakening']};")
-                elif np.abs(row[col]) < 1.0:
-                    styles.append(f"background-color: {QUADRANT_COLORS['Lagging']};")
-                else:
-                    styles.append("")
+                styles.append(color_log_diff(row[col]))
+            elif col == "Perp_RS_Ratio":
+                styles.append(color_log_diff(row[col]))
+            elif col == "Perp_RS_Momentum":
+                styles.append(color_log_diff(row[col]))
             else:
                 styles.append("")
         return styles
 
-    def color_htf(val, quadrant):
+    def color_log_diff(val):
+        # Clamp val to [-1, 1]
+        val = max(-1, min(1, val))
+        # Normalize to [0, 1]
+        norm_val = (val + 1) / 2
+        # Get color from colormap
+        idx = int(norm_val * (len(RdBu_11.mpl_colors) - 1))
+        rgb = RdBu_11.mpl_colors[idx]
+        # Convert to hex
+        hex_color = "#%02x%02x%02x" % tuple(int(255 * c) for c in rgb)
+        # Calculate brightness for contrast
+        brightness = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]
+        text_color = "black" if brightness > 0.6 else "white"
+        return f"background-color: {hex_color}; color: {text_color};"
+
+    def color_quadrant(val, quadrant):
         color = QUADRANT_COLORS.get(quadrant, "rgba(255,255,255,0.3)")
         return f"background-color: {color}; color: black;"
 
